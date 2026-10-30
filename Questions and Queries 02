@@ -1,0 +1,121 @@
+-- Easy Difficulty (Aim for 1–2 minutes each)
+-- 1. Filtering & Sorting
+-- Identify competitors who are currently 'Active' and weigh exactly 75 kg. Return their full name and country of birth, ordered alphabetically by their full name.
+
+select 
+full_name
+,country_of_birth
+,weight_kg
+from til_data_engineering.olympics.athletes
+where weight_kg = 75 and status = 'Alive'
+
+order by full_name desc
+
+
+;
+-- 2. Aggregation
+
+-- Calculate the overall sum of total medals recorded across all Winter Olympic editions combined. Return just the single numerical value.
+
+select
+sum(total_medals)
+from til_data_engineering.olympics.editions
+where season = 'Winter' 
+
+
+
+
+;
+-- 3. Distinct Values & Formatting
+
+-- Retrieve all unique season designations that are associated with sports groups. Return these values fully capitalized.
+
+select 
+upper(season)
+from til_data_engineering.olympics.sport_groups
+group by season
+
+
+
+;
+-- Medium Difficulty (Aim for 2–3 minutes each)
+-- 4. Top N & Tie-Breaking
+-- Determine the top 5 host cities that featured the highest number of total disciplines in a single edition. Return the host city and the discipline count, sorting alphabetically by city name if there is a tie in the count.
+
+select 
+    host_city
+    ,count(total_disciplines)
+from til_data_engineering.olympics.editions
+   group by host_city
+   order by count(total_disciplines) desc, host_city 
+   
+
+
+;
+-- 5. Cross-Referencing Data
+-- Calculate the total number of unique competitors who have participated in an event that is currently marked as discontinued.
+
+select 
+count(distinct athlete_id)
+,is_event_discontinued
+from til_data_engineering.olympics.results
+    left join til_data_engineering.olympics.events
+where is_event_discontinued = true 
+group by is_event_discontinued
+
+
+
+
+;
+-- 6. Conditional Averages
+-- Calculate the average height and average weight of male competitors who have successfully secured at least one medal. Return the gender, the average height, and the average weight, with both averages rounded to a single decimal place. Filter out any missing height or weight data before calculating.
+
+select 
+sex
+,round(avg(height_cm),1)
+,round(avg(weight_kg),1)
+from til_data_engineering.olympics.athletes
+    left join til_data_engineering.olympics.results
+where medal is not null and height_cm is not null and weight_kg is not null
+group by sex
+
+
+
+
+;
+-- Hard Difficulty (Aim for 4–5 minutes each)
+-- 7. Category Maximums & Fallbacks
+-- For every individual country, determine the specific edition year where they secured their highest historical count of medals. Return the country's name, the edition year, and the medal count for that year. If a country has multiple years tied for their highest medal count, only return the most recent year.
+
+
+with cte as (
+
+    select 
+        noc.country_name
+        ,ed.edition_year
+        ,count(res.medal) as total_medal_count
+    from til_data_engineering.olympics.nocs as noc
+        join til_data_engineering.olympics.results as res 
+            on noc.noc = res.noc_id
+        join til_data_engineering.olympics.editions as ed
+            on res.edition_id = ed.edition_id
+    group by country_name,edition_year
+),
+
+ cte2 as (    
+    select 
+        country_name
+        ,edition_year  
+        ,total_medal_count
+        ,row_number() over (partition by country_name order by total_medal_count desc, edition_year desc)  as max_medals
+    from cte )
+
+
+select 
+    country_name
+    ,edition_year
+    ,total_medal_count
+    ,max_medals
+from cte2
+where max_medals = 1 
+order by total_medal_count desc
