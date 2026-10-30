@@ -1,0 +1,114 @@
+-- 1. Aggregation & Distinct Counts (HAVING Clause)
+
+-- Occasionally, athletes change nationalities and compete for different countries. Write a query to identify athletes who have represented more than one distinct National Olympic Committee (NOC) throughout their careers. Join the athletes, results, and nocs tables. Return the athlete's full_name and the count of distinct country_names they have represented.
+
+select 
+    full_name
+    ,count(distinct country_name)
+from til_data_engineering.olympics.athletes as ath
+    join  til_data_engineering.olympics.results as res
+        on ath.athlete_id = res.athlete_id
+    join  til_data_engineering.olympics.nocs as nocs
+        on res.noc_id = nocs.noc
+group by full_name
+having count(distinct country_name) > 1 
+;
+-- 2. Date Math & Aggregation
+
+-- The committee wants to know the average age of medal winners at the 2008 Olympics. Write a query joining athletes, results, and editions. Filter for the edition_year 2008 and only include rows where a medal was awarded. Calculate the athlete's age at the competition_start_date, and then find the average age of these medalists. Return a single number, rounded to one decimal place.
+
+select 
+round(avg(datediff(year,date_of_birth,competition_start_date))) as avg_age 
+from til_data_engineering.olympics.athletes as ath
+    join  til_data_engineering.olympics.results as res
+        on ath.athlete_id = res.athlete_id
+    join til_data_engineering.olympics.editions as ed 
+        on res.edition_id = ed.edition_id
+where ed.edition_year = 2008 and medal is not null 
+limit 1
+
+
+;
+-- 3. Grouping by Multiple Columns & HAVING
+
+-- We want to find athletes who competed in both Team and Solo events during the exact same Olympic edition. Write a query using the results and athletes tables. Group your data by the athlete's full_name and the edition_id. Use a HAVING clause to filter for athletes who have exactly 2 distinct team_or_solo values within that specific edition. Return the full_name and the edition_id.
+
+select 
+full_name
+,count(distinct team_or_solo)
+,edition_id
+from til_data_engineering.olympics.results as res
+    left join til_data_engineering.olympics.athletes as ath
+        on res.athlete_id = ath.athlete_id
+group by full_name, edition_id
+having count(distinct team_or_solo) > 1
+
+
+
+
+;
+-- 4. Math & Basic Window Functions (RANK)
+
+-- Which host cities had the highest participant-to-medal ratios? Write a query using the editions table to calculate the ratio of total_participants divided by total_medals for each edition. Use the RANK() window function to rank the editions from the highest ratio to the lowest. Return the edition_year, host_city, the calculated ratio (rounded to two decimal places), and the rank.
+
+
+with cte as (
+    select
+        host_city
+        ,total_participants/total_medals as medal_ratio
+    from til_data_engineering.olympics.editions
+)
+
+
+select 
+    host_city
+    ,medal_ratio
+    ,rank() over (partition by host_city order by medal_ratio desc) as rank_
+from cte 
+qualify rank_ = 1
+
+
+;
+-- Hard Difficulty (Target: 4–5 minutes each)
+-- 5. CTEs & Window Functions (Top N per Category)
+
+-- Determine which specific discipline has yielded the highest total number of medals for each overarching Sports Group.
+-- Write a query that joins results (filtering for non-null medals), events, disciplines, and sport_groups. Group the data to count total medals per discipline_name within each sports_group_name. Use a CTE and the ROW_NUMBER() or RANK() window function partitioned by the sports group to isolate the top-performing discipline per group. Return the sports_group_name, the discipline_name, and the medal count.
+with cte as (
+    select 
+    disc.discipline_name
+    ,sg.sports_group_name
+    ,count(total_medals as tm
+    ,rank () over ( partition by disc.discipline_name order by count(total_medals) desc) as rank_top_medal
+    from til_data_engineering.olympics.editions as ed 
+        join til_data_engineering.olympics.results as res 
+            on ed.edition_id = res.edition_id
+        join til_data_engineering.olympics.events as ev 
+            on ev.event_id = res.event_id
+        join til_data_engineering.olympics.disciplines as disc
+            on ev.discipline_id = disc.discipline_id
+        join til_data_engineering.olympics.sport_groups as sg
+            on disc.sports_group_id =sg.sports_group_id
+    where total_medals is not null 
+    group by disc.discipline_name,sg.sports_group_name
+    )
+
+
+    select
+    sports_group_name
+    ,discipline_name
+    ,rank_top_medal
+    from cte
+    where rank_top_medal = 1
+
+
+;
+
+
+
+
+
+
+
+
+
