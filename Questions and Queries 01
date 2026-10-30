@@ -1,0 +1,146 @@
+-- 1. Data Retrieval & Sorting
+
+-- We need a historical record of female competitors who have passed away. Retrieve their full names and their dates of birth, and order the final list from the oldest birth date to the youngest.
+
+
+select 
+    full_name
+    ,sex
+    ,date_of_birth
+From til_data_engineering.olympics.athletes
+where sex = 'Female' and status = 'Dead'
+order by date_of_birth asc
+
+
+
+
+
+;
+
+-- 2. Pattern Matching
+
+-- Find all National Olympic Committees where the associated country's name begins with the letter 'A' and ends with the letter 'a' (case-insensitive). Return only the country names.
+
+select 
+country_name
+from til_data_engineering.olympics.nocs
+where lower(left(country_name, 1)) = 'a' and lower(right(country_name,1)) = 'a'
+
+
+
+
+
+
+;
+
+
+-- 3. Basic Arithmetic
+
+-- Calculate the absolute difference between the total number of historical participants and the total number of medals awarded across all editions combined. Return this as a single numerical value.
+
+
+select
+sum(total_participants)
+,sum( total_medals)
+,sum( total_participants) - sum(distinct total_medals) as difference
+from til_data_engineering.olympics.editions
+
+
+
+;
+
+-- Medium Difficulty (Aim for 2–3 minutes each)
+-- 4. Filtering & Date Math
+
+-- Identify the top 10 competitors who lived the longest lives. Return their full name and their exact age in years at the time of their death. Exclude anyone from the results who is still living or whose death date is unknown.
+
+
+
+select 
+full_name
+,datediff(years,date_of_birth,date_of_death)
+from til_data_engineering.olympics.athletes
+where status != 'Alive' and date_of_death is not null
+
+
+
+
+
+
+
+;
+
+-- 5. Multi-Entity Aggregation
+
+-- The planning committee wants to know which specific disciplines are the most medal-heavy. Identify any disciplines that have historically awarded strictly more than 500 medals. Return the discipline's name and the total medal count, sorted from the highest medal count to the lowest.
+
+select 
+d.discipline_name
+,count(r.medal) as total_medal
+
+from til_data_engineering.olympics.disciplines as d
+    join til_data_engineering.olympics.events as e
+        on d.discipline_id = e.discipline_id 
+    join til_data_engineering.olympics.results as r 
+        on r.event_id = e.event_id
+group by d.discipline_name
+having total_medal > 500
+order by total_medal desc
+
+
+
+;
+-- 6. Cross-Referencing & Distinct Values
+
+-- Provide an alphabetical, deduplicated list of the full names of every individual competitor who participated in any event during the 2016 edition year.
+
+
+
+
+select
+distinct(full_name)
+from til_data_engineering.olympics.athletes as a
+    join til_data_engineering.olympics.results as r 
+        on a.athlete_id = r.athlete_id
+    join til_data_engineering.olympics.editions as e
+        on r.edition_id=e.edition_id 
+where edition_year = 2016
+
+
+
+
+;
+
+-- Hard Difficulty (Aim for 4–5 minutes each)
+-- 7. Cross-Seasonal Versatility
+
+-- We want to find the rarest tier of versatile competitors: those who have successfully won at least one medal in a Summer edition AND at least one medal in a Winter edition. Return the full name of these competitors alongside the total overall number of medals they have won in their entire career.
+
+
+
+select 
+full_name
+,count(medal)
+from til_data_engineering.olympics.results as r 
+    join til_data_engineering.olympics.editions as e
+        on  r.edition_id = e.edition_id
+    join til_data_engineering.olympics.athletes as a
+        on a.athlete_id = r.athlete_id
+where medal is not null 
+group by full_name
+having count(distinct season) = 2
+
+;
+-- 8. Category Extremes & Deep Relationships
+
+-- For every overarching sports group, identify the single heaviest male competitor to ever participate in it. Return the sports group's name, the competitor's full name, and their weight. If there happens to be a tie for the heaviest weight within a sports group, you only need to return one of those tied competitors. Filter out any competitors whose weight is not recorded
+
+
+select
+
+
+from til_data_engineering.olympics.
+
+
+
+
