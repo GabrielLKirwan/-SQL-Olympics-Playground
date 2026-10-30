@@ -1,0 +1,181 @@
+-- Medium Difficulty (Target: 3–4 minutes each)
+-- 1. Conditional Aggregation (CASE within SUM or COUNT)
+
+-- The committee wants to analyze the gender distribution of athletes by their country of origin. Write a query to return the country_of_birth, the total count of male athletes, and the total count of female athletes. Use a CASE statement inside your aggregate functions to achieve this. Only include countries that have a total of 10 or more athletes in the database.
+
+select
+    country_of_birth
+    ,count(case when 
+                    sex = 'Male' 
+            then 1 end) as male
+    ,count(case when
+                    sex = 'Female'
+            then 1 end) as female
+from til_data_engineering.olympics.athletes
+group by country_of_birth
+having count(distinct athlete_id) > 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+;
+-- 2. Joins & HAVING Clause
+
+-- Which athletes have proven themselves across a wide variety of specific events? Write a query joining athletes, results, and events. Group by the athlete's full_name and count the number of distinct event_names in which they have won a medal (where medal is not null). Use a HAVING clause to only return athletes who have won medals in strictly more than 3 distinct events.
+
+select
+    full_name
+    ,count(distinct event_name)
+    ,count(distinct medal)
+from til_data_engineering.olympics.athletes as ath
+    left join til_data_engineering.olympics.results as res
+        on ath.athlete_id = res.athlete_id
+    left join til_data_engineering.olympics.events as ev
+        on ev.event_id = res.event_id
+group by full_name
+having count(distinct medal) > 2 
+
+
+
+
+
+
+
+
+
+
+
+;
+-- 3. Window Functions (RANK or DENSE_RANK)
+
+-- We want to rank the scale of Olympic editions based on their participant size, but we need to do this fairly by season. Write a query using the editions table to rank the editions by total_participants (from highest to lowest), partitioned by the season ('Summer' or 'Winter'). Return the edition_year, season, total_participants, and their calculated rank.
+
+
+select 
+edition_year
+,season  
+,total_participants
+,dense_rank() over (partition by season order by total_participants desc )
+from til_data_engineering.olympics.editions
+where total_participants is not null 
+
+
+
+
+
+
+
+
+
+
+
+
+;
+-- 4. Complex Joins & Filtering
+
+-- Let's look at winter sports specifically. Write a query to find the total number of discontinued events that belong to Winter sports groups. You will need to join sport_groups, disciplines, and events. Filter for groups where season is 'Winter' and is_event_discontinued is True. Group by the sports_group_name and return the group name alongside the count of discontinued events.
+
+select 
+sg.sports_group_name
+,count(is_event_discontinued)
+from til_data_engineering.olympics.sport_groups as sg
+    join til_data_engineering.olympics.disciplines as di
+        on sg.sports_group_id =di.sports_group_id
+    join til_data_engineering.olympics.events as ev
+        on ev.discipline_id = di.discipline_id
+where season = 'Winter' and is_event_discontinued = true 
+group by sg.sports_group_name
+
+
+
+
+
+
+
+
+
+
+
+;
+-- Hard Difficulty (Target: 4–5 minutes each)
+-- 5. CTEs & Window Functions (LAG)
+
+-- How much does the Summer Olympics grow from one edition to the next? Write a query that focuses strictly on editions where season is 'Summer'. Use a window function (LAG) to find the total_medals awarded in the immediately preceding Summer edition. Calculate the difference in total medals between the current edition and the previous one. Return the edition_year, total_medals, and the calculated difference.
+
+select 
+edition_year
+,total_medals
+,total_medals - lag(total_medals) over (order by edition_year asc) as difference_in_medals 
+from til_data_engineering.olympics.editions
+where season = 'Summer' and total_medals is not null 
+
+
+
+
+
+
+
+
+
+
+
+
+;
+-- 6. CTEs & Percentage Calculations
+
+-- Which National Olympic Committees (NOCs) rely the most heavily on Team events for their medals?
+-- Write a query using a CTE to calculate two things per country_name: their total overall medals, and their total medals won where team_or_solo equals 'Team'. In the main query, calculate the percentage of team medals out of their total medals. Return countries where this percentage is greater than 50%. Exclude any country that has won fewer than 10 total medals historically.
+
+with cte as (
+    select
+        country_name 
+        ,count(medal) as total_medals
+        ,count(case when team_or_solo = 'Team' then 1 end) as Team_Medals 
+    from til_data_engineering.olympics.nocs
+        left join  til_data_engineering.olympics.results
+            on nocs.noc = results.noc_id
+    group by country_name
+
+)
+
+select 
+country_name
+,total_medals
+,Team_Medals
+,div0(Team_Medals, total_medals) * 100 as perc_of_total_team
+from cte
+where total_medals >= 10
+  and perc_of_total_team > 50
+
+
+
+
+;
+-- 7. Advanced Window Functions (ROW_NUMBER) & Multi-Table Joins
+
+-- We need to pinpoint the exact Olympic edition where each country won their very first medal.
+-- Join nocs, results, and editions. Filter for rows where a medal was actually won. Use a CTE and the ROW_NUMBER() window function, partitioning by country_name and ordering chronologically by edition_year. In your final output, return the country_name, the edition_year of their first medal, and the host_city of that edition.
+
+
+
+select 
+nocs.country_name 
+,ed.host_city
+,ed.edition_year
+,row_number() over (partition by country_name order by edition_year asc) as first_medal 
+from til_data_engineering.olympics.nocs
+    join til_data_engineering.olympics.results as res 
+        on nocs.noc = res.noc_id
+    join til_data_engineering.olympics.editions as ed 
+        on res.edition_id = ed.edition_id
+where medal is not null
+qualify first_medal = 1
