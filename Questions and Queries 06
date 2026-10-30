@@ -1,0 +1,116 @@
+-- Easy Difficulty (Aim for 1–2 minutes each)
+-- 1. Basic Filtering & String Comparison
+
+-- We need to audit records of deceased athletes. Write a query to find athletes who passed away in a different country than where they were born. Return their full_name, country_of_birth, and country_of_death from the athletes table, ensuring you only include records where date_of_death is not null.
+
+select 
+full_name 
+,country_of_birth
+,country_of_death
+from til_data_engineering.olympics.athletes 
+where country_of_birth != country_of_death
+
+
+
+
+
+
+
+
+
+
+
+;
+-- 2. Basic Aggregation & Filtering
+
+-- How many total athletes have participated in the 'Winter' games historically? Write a query using the editions table to calculate the sum of total_participants for all editions where the season is 'Winter'.
+
+
+
+
+
+select 
+season
+,sum(total_participants)
+from til_data_engineering.olympics.editions
+where season "Winter"
+group by season
+
+-- 3. Date Functions & Arithmetic
+
+-- Sometimes competitions begin before the official opening ceremony. Write a query to return the edition_year, host_city, and the difference in days between the opening_ceremony_date and the competition_start_date. Only return editions where the competition started before the opening ceremony.
+
+;
+select 
+edition_year
+,host_city
+,competition_start_date
+,opening_ceremony_date
+,closing_ceremony_date
+from til_data_engineering.olympics.editions
+where competition_start_date < opening_ceremony_date
+
+
+
+
+
+
+
+-- Medium Difficulty (Aim for 2–3 minutes each)
+-- 4. CASE Statements & String Functions
+
+-- We want to categorize athletes based on their weight. Write a query that returns the full_name, weight_kg, and a new column named weight_class. Categorize athletes under 65kg as 'Lightweight', between 65kg and 90kg (inclusive) as 'Middleweight', and over 90kg as 'Heavyweight'. Filter out any athletes with a missing or zero weight.
+;
+select
+full_name
+,weight_kg
+,case 
+    when weight_kg >65 then 'Lightweight'
+    when weight_kg >=65 and weight_kg <=90 then 'Middlewieght'
+    when weight_kg >90 then 'Heavyweight'
+end as weight_cat
+from  til_data_engineering.olympics.athletes
+where weight_kg is not null
+
+
+
+
+
+
+
+-- 5. Joins & Aggregation
+
+-- Which National Olympic Committees (NOCs) have collected the highest number of medals? Write a query joining the results and nocs tables to return the country_name and a count of total medals won. Filter out results where the medal column is null. Order the results by the highest medal count descending, and limit the output to the top 10.
+
+;
+select 
+country_name
+,count(res.medal)
+from til_data_engineering.olympics.nocs as nocs
+    left join til_data_engineering.olympics.results as res 
+        on nocs.noc = res.noc_id
+where medal is not null 
+group by country_name
+
+
+
+-- 6. Window Functions (Cumulative Sum)
+
+-- The committee wants to see the growth of the Olympics over time. Write a query using the editions table to return the edition_year, the total_disciplines for that year, and a running total (cumulative sum) of total_disciplines ordered chronologically by edition_year.
+;
+
+
+select 
+editions.edition_year 
+,count(discipline_name)
+,count(discipline_name) over (order by edition_year)
+
+
+from til_data_engineering.olympics.disciplines
+    left join  til_data_engineering.olympics.events
+        on disciplines.discipline_id = events.discipline_id
+    left join  til_data_engineering.olympics.results
+        on events.event_id = results.event_id
+    left join  til_data_engineering.olympics.editions
+        on results.edition_id = editions.edition_id
+group by editions.edition_year, discipline_name
