@@ -1,0 +1,109 @@
+-- Medium Difficulty (Aim for 2–3 minutes each)
+-- 1. Demographic Ratios
+
+-- Identify the proportion of female competitors associated with each specific country of birth. Return the country's name and the percentage of its competitors who are female, rounded to two decimal places. Only include countries that have historically produced at least 50 total competitors in the database. Order the final list starting from the highest female percentage down to the lowest.
+
+select 
+    country_of_birth
+    ,round((count(case 
+        when sex = 'Female' then 1 
+    end)/count(*))*100) as perc_of_total
+from athletes
+group by country_of_birth
+having count(*) >50
+order by perc_of_total desc
+
+
+
+
+
+;
+-- 2. Date Math & Cross-Referencing
+
+-- We are researching competitors who achieved glory but suffered a tragically early death. Identify any competitor who successfully won at least one medal during their career but passed away before reaching their 30th birthday. Return their official full name and their exact age in years at the time of their death, ordered from the youngest at the time of death to the oldest.
+
+select 
+full_name
+,datediff(year,date_of_birth,date_of_death)
+
+
+from results as r 
+    left join athletes as a 
+        on a.athlete_id=r.athlete_id
+where medal is not null and datediff(year,date_of_birth,date_of_death) < 30
+order by datediff(year,date_of_birth,date_of_death) asc
+
+;
+-- 3. Deep Relationships & Exclusion
+
+-- Identify countries (National Olympic Committees) that have completely avoided the cold. Return a deduplicated, alphabetical list of the names of countries that have never once had a competitor participate in any event belonging to a Winter sports group.
+
+select distinct
+country_name
+from nocs as n 
+    join results as r 
+        on n.noc = r.noc_id
+    join editions as e
+        on r.edition_id = e.edition_id
+where season != 'Winter'
+order by country_name asc
+
+
+
+
+
+;
+-- 4. Advanced Grouping & Partnerships
+
+-- Some competitors are the ultimate team players. Identify individuals who have partnered with strictly more than 3 distinct teammates across all their recorded historical events. Return the primary competitor's official full name and the count of their unique teammates, sorted from the highest number of partners to the lowest.
+
+select
+    full_name
+    ,case when  count(distinct r.team_partner_id) > 3 then 'true'end as team_player
+    ,case when count(distinct r.team_partner_id) > 3 then 1 end as team_player_count
+from results as r 
+    join athletes as a
+        on a.athlete_id =r.athlete_id
+where r.team_partner_id is not null 
+group by full_name
+order by team_player_count desc
+
+
+;
+-- Hard Difficulty (Aim for 4–5 minutes each)
+-- 5. Rolling Calculations (Window Functions)
+-- Track the historical medal bloat of the Summer games specifically. For every Summer edition, calculate a rolling average of the total medals awarded globally across that specific edition and the two strictly preceding Summer editions. Return the year of the edition and the calculated rolling average, rounded to one decimal place, ordered chronologically.
+
+select 
+    edition_year
+    ,round(avg(total_medals) over 
+        (order by edition_year asc 
+        rows between 2 preceding and current row),1) as rolling_medal_avg
+from editions
+    where season = 'Summer'
+    order by edition_year asc
+
+
+
+;
+-- 6. Category Dominance (Top N)
+-- Determine the single most successful discipline for every National Olympic Committee. For each country, identify the specific discipline in which they have won their highest historical total of medals. Return the country's name, the discipline's name, and the total medal count. If a country has multiple disciplines perfectly tied for their highest medal count, you must return all tied disciplines for that country.
+
+;
+select 
+    country_name
+    ,rank() over (partition by country_name, discipline_name order by count(medal) ) as dominant_cat
+    ,discipline_name
+    ,count(medal)
+from nocs as n 
+    join results as r   
+        on n.noc = r.noc_id
+    join editions as ed 
+        on r.edition_id = ed.edition_id
+    join events as e 
+        on e.event_id = r.event_id
+    join disciplines as d 
+        on d.discipline_id = e.discipline_id
+group by country_name, discipline_name
+order by country_name, dominant_catw
+
