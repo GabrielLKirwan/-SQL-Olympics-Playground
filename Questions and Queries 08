@@ -1,0 +1,125 @@
+-- Easy Difficulty (Aim for 1–2 minutes each)
+-- 1. Pattern Matching & NULL Filtering (LIKE & IS NULL)
+
+-- We need to find specific active athletes for a promotional campaign. Write a query using the athletes table to return the full_name and sex of all athletes whose full_name begins with the letter 'Z', and who are assumed to still be alive (meaning their date_of_death has no recorded data).
+
+select 
+    full_name
+    ,sex
+from til_data_engineering.olympics.athletes
+    where  left(full_name,1) = 'Z'
+    and date_of_death is null
+
+
+
+;
+-- 2. Conditional Logic (CASE WHEN)
+
+-- The nutrition team wants to categorize athletes by weight classes. Write a query to return the full_name, weight_kg, and a new derived column called weight_category. Set the category to 'Lightweight' for under 65kg, 'Middleweight' for 65kg up to 90kg, and 'Heavyweight' for over 90kg. Exclude any athletes with no weight data.
+
+select 
+full_name
+,weight_kg
+,case 
+    when weight_kg < 65 then 'Lightweight'
+    when weight_kg >= 65 and weight_kg <= 90 then 'Middleweight'
+    when weight_kg > 90 then 'Heavyweight'
+end as weight_cat
+from til_data_engineering.olympics.athletes
+where weight_kg is not null
+;
+-- 3. String Concatenation
+
+-- Generate a display tag for each National Olympic Committee (NOC). Using the nocs table, return a single column named welcome_tag that formats the string exactly like this: "Welcome to the [country_name] Delegation! Era: [country_era]"
+
+select 
+concat('Welcome to the ', country_name, ' Delegation! Era: ', country_era) as welcome_tag
+from til_data_engineering.olympics.nocs
+
+;
+-- Medium Difficulty (Aim for 2–3 minutes each)
+-- 4. Grouping with Set Filters (HAVING)
+
+-- Which cities are repeat hosts? Write a query using the editions table to return the host_city and a count of how many Olympic editions they have hosted. Filter the final output to only show cities that have hosted more than 1 edition.
+
+
+
+select 
+    host_city
+    ,count(distinct edition_year) as count_of_oly
+from til_data_engineering.olympics.editions
+   group by host_city
+   having count(distinct edition_year) > 1
+   
+
+
+
+
+
+
+
+;
+-- 5. Advanced Window Functions (LAG or LEAD)
+
+-- The planning committee wants to observe year-over-year growth. Write a query returning the edition_year, the total_participants for that year, and a third column showing the total_participants from the previous chronological Olympic edition. You will need to use a window function on the editions table to retrieve the previous row's value.
+
+select 
+edition_year
+,season
+,total_participants
+,lag(total_participants,1) over (partition by season 
+order by edition_year) as previous_participant_count
+
+
+from til_data_engineering.olympics.editions
+
+
+
+
+
+
+
+;
+-- 6. Complex Joins & Distinct Counts
+
+-- We want to measure the sporting versatility of each country. Write a query that returns a country's country_name and a count of the unique sports_group_names where that country has successfully won a medal. You will need to join nocs, results, events, disciplines, and sport_groups. Ensure you filter out null medals and order the results by the most versatile country first.
+
+
+select 
+country_name
+,count(distinct sports_group_name) as versatility_count
+from til_data_engineering.olympics.nocs
+    left join til_data_engineering.olympics.results as res 
+        on nocs.noc = res.noc_id
+    left join til_data_engineering.olympics.events as ev
+        on res.event_id = ev.event_id
+    left join til_data_engineering.olympics.disciplines as disc
+        on ev.discipline_id = disc.discipline_id
+    left join til_data_engineering.olympics.sport_groups as sg 
+        on disc.sports_group_id = sg.sports_group_id 
+
+where res.medal is not null 
+group by country_name
+order by versatility_count desc
+        
+
+
+;
+-- 8. CTEs & Cumulative Sums
+
+-- Track the historical growth of Olympic medals. Write a query that first uses a CTE (or subquery) to ensure the editions table is ordered strictly by edition_year. Then, return the edition_year, the total_medals awarded in that specific edition, and a third column calculating the rolling cumulative sum (running total) of all total_medals awarded throughout Olympic history up to and including that year.
+
+with q1 as (
+select 
+edition_year
+,sum(total_medals) as sum_total_medals
+from til_data_engineering.olympics.editions 
+group by edition_year
+order by edition_year asc
+)
+
+select 
+edition_year
+,sum_total_medals
+,sum(sum_total_medals) over(order by edition_year)
+from q1 
