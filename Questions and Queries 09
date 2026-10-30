@@ -1,0 +1,161 @@
+-- 1. Basic Arithmetic & Filtering
+
+-- Calculate the Body Mass Index (BMI) for all athletes whose status is listed as 'Active'. The formula for BMI is weight (kg) divided by height (meters) squared. Return the athlete's full_name and their calculated BMI, rounding the BMI to two decimal places. Ensure you handle cases where height might be zero to avoid division by zero errors.
+
+
+
+select 
+full_name
+,round(weight_kg/square(height_cm/100),2)
+from til_data_engineering.olympics.athletes
+;
+-- 2. Date Functions
+
+-- The planning committee wants to audit the lengths of past Olympic games. Write a query to return the edition_year, host_city, and the duration of the games in days (the difference between closing_ceremony_date and opening_ceremony_date) from the editions table.
+
+select 
+edition_year
+,host_city
+,datediff(days,opening_ceremony_date,closing_ceremony_date) as duration 
+from til_data_engineering.olympics.editions
+
+
+
+
+
+
+
+
+
+;
+-- 3. String Functions
+
+-- We need to clean up some athlete reporting data. Return the full_name in all uppercase letters, and the country_of_birth in all lowercase letters for any athlete whose used_name is strictly different from their full_name.
+
+
+select 
+upper(full_name)
+,lower(country_of_birth)
+from til_data_engineering.olympics.athletes
+where used_name != full_name
+
+
+
+
+
+
+
+-- Medium Difficulty (Aim for 2–3 minutes each)
+-- 4. Joins & Aggregation
+
+-- Which sports groups have the most discontinued events? Write a query that joins the events, disciplines, and sport_groups tables to return the sports_group_name and a count of how many events are discontinued (is_event_discontinued = True). Order the results from highest count to lowest.
+;
+select 
+sg.sports_group_name
+,count(is_event_discontinued)
+
+from til_data_engineering.olympics.sport_groups as sg
+    left join til_data_engineering.olympics.disciplines  as di
+        on sg.sports_group_id = di.sports_group_id
+    left join til_data_engineering.olympics.events as ev
+        on ev.discipline_id = di.discipline_id
+where ev.is_event_discontinued = 'True'
+group by sg.sports_group_name
+
+
+
+
+
+
+-- 5. Window Functions (Basic)
+
+-- We want to see how athletes physically compare to their compatriots. Write a query to return an athlete's full_name, country_of_birth, height_cm, and their height rank within their country_of_birth (e.g., the tallest athlete in the USA gets rank 1 for the USA). Use a window function to achieve this.
+;
+select 
+full_name
+,country_of_birth
+,height_cm
+,RANK() OVER (PARTITION BY country_of_birth ORDER BY height_cm DESC)
+
+from til_data_engineering.olympics.athletes
+
+
+
+
+
+
+
+-- 6. Date Functions & Joins
+
+-- How old were the athletes when they competed? Write a query that returns the full_name of the athlete, the edition_year, and their age in years at the exact start date of the competition (competition_start_date). You will need to join the athletes, results, and editions tables.
+
+
+;
+select 
+full_name
+,edition_year
+,datediff(years,date_of_birth, competition_start_date)
+
+from til_data_engineering.olympics.athletes as ath
+    left join til_data_engineering.olympics.results as res 
+        on ath.athlete_id = res.athlete_id
+    left join til_data_engineering.olympics.editions as ed
+        on res.edition_id = ed.edition_id
+
+
+
+
+
+-- Hard Difficulty (Aim for 4–5 minutes each)
+-- 7. Common Table Expressions (CTEs) & Subqueries
+
+-- Identify the "above-average" Olympic editions. First, use a CTE to calculate the average total_participants across all editions. Then, write a main query that returns the edition_year, host_city, and total_participants for only those editions that had a higher number of participants than the historical average.
+
+;
+with q1 as (
+select 
+edition_year
+,host_city
+,total_participants
+,round(avg(total_participants) over ()) as avg_participants
+from til_data_engineering.olympics.editions
+)
+
+select *
+
+from q1 
+where total_participants > avg_participants
+
+
+;
+
+
+
+-- 8. Advanced: CTEs + Window Functions + Joins
+
+-- Who was the most successful country in each Olympic edition based purely on total medals recorded in the results?
+-- Write a query that uses a CTE to count the total number of medals won by each country_name (via the nocs table) per edition_year. Then, use a window function on that CTE to return only the single top medal-winning country for each edition_year, along with their medal count.
+
+with q1 as(
+select 
+    nocs.country_name
+    ,edition_year
+    ,count(res.medal) as medal_count
+from til_data_engineering.olympics.nocs 
+    left join til_data_engineering.olympics.results as res 
+        on nocs.noc = res.noc_id
+    left join til_data_engineering.olympics.editions as eds 
+        on res.edition_id = eds.edition_id
+where res.medal is not null 
+group by country_name,edition_year
+)
+
+
+select 
+    country_name
+    ,edition_year
+    ,rank() over (partition by edition_year order by medal_count desc) as no1country
+from q1 
+    qualify no1country = 1
+   order by edition_year desc
+    
