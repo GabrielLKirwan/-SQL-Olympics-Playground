@@ -1,0 +1,171 @@
+-- **1. Text Length Comparison**
+
+-- > Sometimes a competitor's everyday "used" name is actually longer than their official full name. Identify these specific competitors. Return their official full name and their used name, but only for records where the used name has strictly more characters than the full name.
+
+
+select
+    full_name
+    ,used_name
+from athletes
+    where length(full_name) < length(used_name)
+    
+
+
+
+;
+-- **2. Basic Aggregation & Math**
+
+-- > We are putting together a statistical overview of female competitors. Calculate the overall average height of all female competitors. Return this as a single numerical value, rounded to the nearest whole integer. Be sure to exclude anyone whose height is not recorded.
+
+select
+round(avg(height_cm))
+from  athletes
+where sex = 'Female' and height_cm is not null
+
+
+
+
+
+
+;
+-- **3. Distinct Values & Filtering**
+
+-- > We need a clean list of the different historical "eras" that countries belong to, but only for countries that have successfully competed in the modern era of the games. Return a deduplicated list of these era names, sorted in alphabetical order.
+
+
+select distinct 
+country_name
+,country_era
+from nocs
+where competed_in_modern_olympics = true
+order by country_name asc
+
+
+
+
+
+
+
+
+
+;
+-- ---
+
+-- ### **Medium Difficulty (Aim for 2–3 minutes each)**
+
+-- **4. Entity Traversal & Filtering**
+
+-- > The committee wants to review discontinued events that specifically belonged to the 'Gymnastics' discipline. Return a list containing only the names of these specific discontinued events. Order the list alphabetically by the event name.
+
+
+select 
+    event_name
+    ,is_event_discontinued
+from events as e 
+    join disciplines as d 
+        on e.discipline_id = d.discipline_id
+where discipline_name = 'Gymnastics' and is_event_discontinued = true   
+
+
+
+
+
+
+;
+-- **5. Date Boundaries & Arithmetic**
+
+-- > Identify the historical editions where the actual competition began *and* concluded entirely within the month of August. Return the host city, the year, and the exact duration of the competition in days.
+
+
+
+
+select 
+    host_city
+    ,edition_year
+    ,datediff(days,competition_start_date,competition_end_date)
+from editions
+where date_part('month', competition_start_date) = 8 and  date_part('month', competition_end_date) = 8 
+
+
+
+;
+-- **6. Complex Aggregation & Logic**
+
+-- > We want to find countries with a massive historical attendance record but zero hardware to show for it. Identify any countries that have recorded participant entries in strictly more than 20 distinct edition years, but have never won a single medal across their entire history. Return only the country name.
+
+select 
+    country_name
+from results as r    
+    join nocs 
+        on r.noc_id = nocs.noc
+    join editions as e 
+        on e.edition_id = r.edition_id
+group by country_name, competed_in_modern_olympics
+having count(distinct e.edition_id) > 20 and count(total_medals) = 0
+
+
+
+
+;
+-- ---
+
+-- ### **Hard Difficulty (Aim for 4–5 minutes each)**
+
+-- **7. Period-over-Period Analysis (Window Functions)**
+
+-- > Analyze the growth of global participation in the Winter games. For every Winter edition, return the year, the total number of participating countries, and the percentage change in participating countries compared to the *strictly chronological previous* Winter edition. Round this percentage change to two decimal places. (The very first Winter edition will naturally have a null or blank percentage change).
+
+
+select 
+    edition_year
+    ,total_countries
+    ,lag(total_countries,1) over (order by edition_year asc) as prev_total_countries 
+    ,(total_countries-lag(total_countries,1) over (order by edition_year asc))/lag(total_countries,1) over (order by edition_year asc)*100 as perc_change
+from editions
+where season = 'Winter'
+
+
+
+
+;
+-- **8. Advanced Grouping & Tie-Breakers (Top N)**
+
+-- > We categorize countries into different historical "eras". For every distinct era, identify the single individual competitor who has amassed the highest total number of medals while representing a country in that era.
+-- > Return the name of the era, the competitor's full name, and their total medal count. If multiple competitors are perfectly tied for the highest medal count within a specific era, return all of the tied individuals for that era.
+
+with cte as (
+select 
+    full_name
+    ,count(medal) as total_medals
+    ,country_era
+from results as r 
+    join athletes as a
+       on a.athlete_id = r.athlete_id
+    join nocs as n 
+      on  n.noc = r.noc_id
+
+group by full_name, country_era
+    order by count(medal) desc
+)
+
+
+select 
+    full_name
+    ,country_era
+    ,total_medals
+    ,rank() over ( partition by country_era order by total_medals  desc) as rank_
+from cte
+qualify rank_ = 1 
+
+
+;
+select 
+country_name
+,count(r.medal)
+from nocs
+    join results as r 
+        on nocs.noc = r.noc_id
+group by country_name
+having country_name = 'Canada'
+
+
