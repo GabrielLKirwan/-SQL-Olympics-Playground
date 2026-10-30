@@ -1,0 +1,147 @@
+USE DATABASE til_data_engineering;
+USE SCHEMA olympics
+
+
+;
+
+-- Easy Difficulty (Aim for 1–2 minutes each)
+-- 1. Extreme Aggregations (MIN & MAX)
+
+-- The historians want to know the absolute age range of athletes in our database. Write a query querying the athletes table to find the earliest date of birth and the most recent date of birth. Return just one row with two columns: oldest_dob and youngest_dob.
+
+
+select 
+min(date_of_birth)
+,max(date_of_birth)
+from til_data_engineering.olympics.athletes
+
+
+
+
+
+;
+
+-- 2. Range Filtering (BETWEEN)
+
+-- The planning committee wants to pull a list of all Olympic games held strictly during the 20th century. Write a query to return the edition_year, season, and host_city from the editions table where the edition_year is between 1900 and 1999 (inclusive).
+
+select
+edition_year
+,season
+,host_city
+from til_data_engineering.olympics.editions
+ where edition_year between 1899 and 1999
+ order by edition_year desc 
+
+
+
+
+;
+-- 3. String Length (LENGTH or LEN)
+
+-- UI designers are building a new athlete profile page and need to account for long names. Write a query returning the full_name and a calculated column showing the character length of that name. Order the results to show the top 5 longest names in the database.
+
+
+select 
+full_name
+,length(full_name)
+from til_data_engineering.olympics.athletes
+order by length(full_name) desc 
+limit 5 
+
+
+;
+-- Medium Difficulty (Aim for 2–3 minutes each)
+-- 4. Date Extraction (EXTRACT or DATEPART)
+
+-- Are the Olympic games consistently starting in the same months? Write a query using the editions table to extract just the month from the opening_ceremony_date. Return the extracted month (as a number or name) and a count of how many editions started in that month (edition_count). Group and order by the month.
+
+
+select 
+date_part(month, competition_start_date) as start_month
+,count(date_part(month, competition_start_date)) number
+from til_data_engineering.olympics.editions
+group by start_month
+
+
+;
+-- 5. Multiple Aggregations & Null Filtering
+
+-- Let's compare the physical attributes of athletes based on their sex. Write a query returning the sex, the average height_cm, and the average weight_kg. Round both averages to 1 decimal place. You must filter out any athletes where either height or weight is missing (NULL) before calculating the average.
+
+select 
+sex
+,round(avg(height_cm),1)
+,round(avg(weight_kg),1) 
+from til_data_engineering.olympics.athletes
+where height_cm is not null and weight_kg is not null 
+group by sex
+
+
+
+
+;
+-- 6. Joins & Aggregation Filters (HAVING)
+
+-- Who are the most decorated Olympians of all time? Write a query returning the athlete's full_name and their total medal count. You will need to join athletes to results (where medal is not null). Use a HAVING clause to filter the final output so it only includes athletes who have won 5 or more medals, ordered by the highest medal count.
+;
+select
+full_name
+,count(medal)
+from til_data_engineering.olympics.athletes as ath
+    left join til_data_engineering.olympics.results as res
+        on ath.athlete_id = res.athlete_id
+group by full_name
+having count(medal) >=  5
+
+
+
+
+
+
+
+;
+-- Hard Difficulty (Aim for 4–5 minutes each)
+-- 7. The Anti-Join (LEFT JOIN ... IS NULL or NOT EXISTS)
+
+-- Which National Olympic Committees (NOCs) have competed but never recorded a single result?
+-- Write a query returning the noc code and country_name from the nocs table for any country that does not have a single matching record in the results table.
+
+
+
+select 
+nocs.country_name
+
+from til_data_engineering.olympics.nocs as nocs 
+    left join til_data_engineering.olympics.results as res
+        on nocs.noc = res.noc_id
+where event_id is null 
+group by country_name
+
+
+;
+-- 8. Advanced: Window Aggregation & Percentages
+
+-- What percentage of total medals did each country win during the 2012 edition?
+-- Write a query that joins nocs, results, and editions. First, group the data to find the count of medals won by each country_name specifically in the edition_year 2012. Then, use a window function (SUM() OVER()) across those aggregated rows to calculate the total medals awarded in 2012, and divide the country's medals by this grand total to get a medal_percentage. Order by the highest percentage first.
+
+with q1 as (
+select 
+country_name
+
+,count(medal) as total_medals
+from til_data_engineering.olympics.nocs
+    left join til_data_engineering.olympics.results 
+        on nocs.noc = results.noc_id
+    left join til_data_engineering.olympics.editions
+        on results.edition_id = editions.edition_id
+where edition_year = 2012
+group by country_name
+order by count(medal) desc
+)
+
+select 
+country_name
+,(total_medals/sum(total_medals) over ()) *100 as perc_of_total
+from q1 
+
