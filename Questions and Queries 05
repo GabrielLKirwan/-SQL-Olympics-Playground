@@ -1,0 +1,75 @@
+-- 1. String Functions & Pattern Matching
+
+-- We need to identify athletes who share a specific naming convention. Write a query to find all athletes whose used_name contains the word "Junior" (case-insensitive). Return their full_name and used_name from the athletes table.
+
+
+select 
+full_name
+from til_data_engineering.olympics.athletes
+where full_name in  ('Junior')
+
+
+
+;
+-- 2. Date Filtering & Status
+
+-- The marketing team wants to highlight young, active talent. Write a query to return the full_name and date_of_birth of all athletes born on or after January 1, 2000, who currently have an 'Active' status. Order the results from youngest to oldest.
+
+select
+full_name
+,date_of_birth
+from til_data_engineering.olympics.athletes
+where date_of_birth > '2000-01-01'
+
+
+;
+-- 3. Basic Arithmetic & Sorting
+
+-- How crowded were the Olympic villages? For each Olympic edition, calculate the average number of participants per country. Return the edition_year, host_city, and the result of dividing total_participants by total_countries. Round this number to the nearest whole integer and order the results from most crowded to least crowded.
+
+select 
+    edition_year
+    ,host_city
+    ,round(div0(total_participants,total_countries),0) as avg_part
+from til_data_engineering.olympics.editions
+   order by avg_part desc
+    
+
+
+
+;
+-- Medium Difficulty (Aim for 2–3 minutes each)
+-- 4. Joins & String Concatenation
+-- The broadcast team needs a clean list of events for their graphics package. Write a query that joins the events and disciplines tables to return a single column named event_display_name. This column should concatenate the discipline and the event name together, separated by a hyphen and spaces (e.g., "Swimming - 100m Freestyle").
+
+
+-- 5. Window Functions (Ranking)
+
+-- Compare the scale of the Summer and Winter games independently. Write a query using the editions table to rank the editions by total_medals awarded, partitioned by the season. Return the edition_year, season, total_medals, and their rank (where rank 1 is the highest number of medals for that season). Use DENSE_RANK() to handle any potential ties.
+
+select 
+edition_id
+,season
+,edition_year
+,dense_rank() over (partition by season order by total_medals)
+from til_data_engineering.olympics.editions
+
+;
+
+
+;
+-- 6. Aggregation & HAVING Clause
+
+-- We want to identify National Olympic Committees (NOCs) that have high participation but low medal yields. Join the nocs and results tables. Find countries (country_name) that have more than 50 total event entries recorded in the results table, but have won strictly fewer than 5 medals.
+
+
+select 
+country_name
+,count(event_instance_id)
+,count(medal)
+from til_data_engineering.olympics.nocs
+    left join til_data_engineering.olympics.results as res 
+        on nocs.noc = res.noc_id
+group by country_name
+having count(event_instance_id) > 50 and count(medal) < 5
+
